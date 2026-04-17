@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h2>Detta är startsidan</h2>
+    <p>Välkommen till forumet! Här kan du diskutera olika ämnen och dela dina tankar.</p>
+
+    <form action="/create_thread" method="POST">
+        <input type="text" name="title" placeholder="Thread title" required>
+        <button type="submit">Create thread</button>
+    </form>
+{% endblock %}

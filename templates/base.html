@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forum</title>
+</head>
+<body>
+    <h1>Välkommen till forumet!</h1>
+    <p>Här kan du diskutera olika ämnen och dela dina tankar.</p>
+    <h2>
+        {% if username %}
+            Inloggad som: {{ username }}
+            <a href="/logout">Logga ut</a>
+        {% else %}
+            Du är inte inloggad.
+            <br>
+            <a href="/login">Logga in</a>
+            <br>
+            <a href="/register">Registrera</a>
+        {% endif %}
+    </h2>
+    {% block content %}
+
+    {% endblock %}
+    
+</body>
+</html>
