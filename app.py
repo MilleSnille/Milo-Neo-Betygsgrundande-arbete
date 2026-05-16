@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, session
+from flask import Flask, redirect, request, jsonify, render_template, session
 from flask_cors import CORS
 import os
 import mysql.connector  # den här modulen behövs för att skapa en databasanslutning
@@ -37,7 +37,24 @@ def index():
     #         if user['username'] == username and user['password'] == password:
     #             session['username'] = username
     #             return render_template('index.html', username=username)
-    return render_template('index.html')
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'error': 'Database connection failed'}), 500
+    try:
+        cursor = connection.cursor(dictionary=True)
+        sql = "SELECT * FROM threads"
+        cursor.execute(sql)
+        threads = cursor.fetchall()
+    except Error as e:
+        print(f"Database error: {e}")
+        return jsonify({'error': 'Failed to fetch threads'}), 500
+    finally:
+        if connection:
+            connection.close()
+            
+    if 'username' in session:
+        return render_template('index.html', username=session.get('username'), threads=threads)  # Skicka användarnamnet och trådar till index.html om det finns i sessionen
+    return redirect('/login')  # Om användaren inte är inloggad, omdirigera till login-sidan
 
 @app.route("/register", methods=['GET'])
 def register_page():
@@ -116,7 +133,7 @@ def create_thread():
         cursor.execute(sql_insert, (title, user_id))
         connection.commit()
 
-        return jsonify({'message': 'Thread created successfully'}), 201
+        return redirect('/')  # Omdirigera till startsidan efter att tråden har skapats
         return render_template('index.html', username=session['username'])  # Skicka tillbaka användarnamnet till index.html
 
     except Error as e:
@@ -127,6 +144,41 @@ def create_thread():
         if connection:
             connection.close()
     
+@app.route('/thread/<int:thread_id>', methods=['GET'])
+def view_thread(thread_id):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'error': 'Database connection failed'}), 500
+    
+    try:
+        cursor = connection.cursor(dictionary=True)
+        
+        # Hämta trådinformation
+        sql_thread = "SELECT * FROM threads WHERE thread_id = %s"
+        cursor.execute(sql_thread, (thread_id,))
+        thread = cursor.fetchone()
+
+        if not thread:
+            return jsonify({'error': 'Thread not found'}), 404
+
+        # Hämta inlägg i tråden
+        sql_posts = """
+        SELECT posts.post_id, posts.content, users.username 
+        FROM posts 
+        JOIN users ON posts.user_id = users.user_id 
+        WHERE posts.thread_id = %s
+        """
+        cursor.execute(sql_posts, (thread_id,))
+        posts = cursor.fetchall()
+        return render_template('thread.html', thread=thread, posts=posts, username=session['username'])
+    except Error as e:
+        print(f"Database error: {e}")
+        return jsonify({'error': 'Failed to fetch thread data'}), 500
+    
+
 
 @app.route("/login", methods=['GET'])
 def login_page():
@@ -154,7 +206,7 @@ def login():
             del user['password']
 
         session ['username'] = username  
-        return render_template('index.html', username=username)
+        return redirect('/')  # Omdirigera till startsidan efter inloggning
     
     except Error as e:
         print(f"Database error: {e}")
@@ -167,7 +219,7 @@ def login():
 @app.route('/logout', methods=['GET'])
 def logout():
     session.clear()  # Rensa sessionen när användaren loggar ut
-    return render_template('index.html')
+    return redirect('/login')  # Omdirigera till login-sidan efter utloggning
 
 if __name__ == "__main__": 
     app.run(debug=True, port=3000) 
