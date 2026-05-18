@@ -208,6 +208,7 @@ def handle_new_thread(data):
 
 @app.route('/thread/<int:thread_id>', methods=['GET'])
 def view_thread(thread_id):
+
     if 'username' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
 
@@ -228,14 +229,14 @@ def view_thread(thread_id):
 
         # Hämta inlägg i tråden
         sql_posts = """
-        SELECT posts.post_id, posts.content, posts.created_at, users.username 
+        SELECT posts.post_id, posts.user_id, posts.content, posts.created_at, users.username 
         FROM posts 
         JOIN users ON posts.user_id = users.user_id 
         WHERE posts.thread_id = %s
         """
         cursor.execute(sql_posts, (thread_id,))
         posts = cursor.fetchall()
-        return render_template('thread.html', thread=thread, posts=posts, username=session['username'])
+        return render_template('thread.html', thread=thread, posts=posts, username=session['username'], role=session['role'], user_id=session['user_id'])
     except Error as e:
         print(f"Database error: {e}")
         return jsonify({'error': 'Failed to fetch thread data'}), 500
@@ -338,6 +339,7 @@ def login():
     username = request.form.get('username')
     password = request.form.get('password')
     
+    
     connection = get_db_connection()
     if not connection:
         return jsonify({'error': 'Database connection failed'}), 500
@@ -355,6 +357,8 @@ def login():
             del user['password']
 
         session ['username'] = username  
+        session["role"] = user["role"]
+        session["user_id"] = user["user_id"]
         return redirect('/')  # Omdirigera till startsidan efter inloggning
     
     except Error as e:
@@ -370,5 +374,43 @@ def logout():
     session.clear()  # Rensa sessionen när användaren loggar ut
     return redirect('/login')  # Omdirigera till login-sidan efter utloggning
 
+@app.route("/delete_post/<int:post_id>/<int:thread_id>", methods=['POST'])
+def delete_post(post_id, thread_id):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'error': 'Database connection failed'}), 500
+
+    try:
+        cursor = connection.cursor()
+
+        # Hämta postens information
+        cursor.execute("SELECT user_id FROM posts WHERE post_id = %s", (post_id,))
+        post = cursor.fetchone()
+
+        if not post:
+            return jsonify({'error': 'Post not found'}), 404
+
+        post_user_id = post[0]
+
+        # Kontrollera om den inloggade användaren är ägaren av posten eller en admin
+        if session['user_id'] != post_user_id and session['role'] != 'admin':
+            return jsonify({'error': 'Forbidden'}), 403
+
+        # Radera posten
+        cursor.execute("DELETE FROM posts WHERE post_id = %s", (post_id,))
+        connection.commit()
+
+        return redirect(f'/thread/{thread_id}')
+
+    except Error as e:
+        print(f"Database error: {e}")
+        return jsonify({'error': 'Failed to delete post'}), 500
+
+    finally:
+        if connection:
+            connection.close()
 if __name__ == "__main__": 
     socketio.run(app, debug=True, port=3000) 

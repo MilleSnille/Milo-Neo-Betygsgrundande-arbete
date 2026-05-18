@@ -33,7 +33,10 @@
 <div id="posts">
 
     {% for post in posts %}
-
+    {% if post.user_id == session['user_id'] or session['role'] == 'admin' %}
+        <form action="/delete_post/{{ post.post_id }}/{{ thread.thread_id }}" method="POST">
+            <button type="submit">Ta bort</button>
+        </form>"
     <div style="border:1px solid black; padding:10px; margin-bottom:10px;">
         <strong>{{ post.username }}</strong>
 
@@ -51,7 +54,7 @@
 </div>
 
 <script>
-    
+
     const form = document.getElementById("postForm");
     const textarea = document.getElementById("postContent");
     const postsDiv = document.getElementById("posts");
