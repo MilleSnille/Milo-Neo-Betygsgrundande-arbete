@@ -161,7 +161,51 @@ def create_thread():
     finally:
         if connection:
             connection.close()
-    
+
+@socketio.on("new_thread")
+def handle_new_thread(data):
+    title = data["title"]
+    username = data["username"]
+
+    connection = get_db_connection()
+
+    if not connection:
+        return
+
+    try:
+        cursor = connection.cursor()
+
+        cursor.execute(
+            "SELECT user_id FROM users WHERE username = %s",
+            (username,)
+        )
+
+        user = cursor.fetchone()
+
+        if not user:
+            return
+
+        user_id = user[0]
+
+        cursor.execute("""
+            INSERT INTO threads (title, user_id)
+            VALUES (%s, %s)
+        """, (title, user_id))
+
+        connection.commit()
+
+        thread_id = cursor.lastrowid
+
+        emit("receive_thread", {
+            "thread_id": thread_id,
+            "title": title,
+            "username": username
+        }, broadcast=True)
+
+    finally:
+        if connection:
+            connection.close()
+
 @app.route('/thread/<int:thread_id>', methods=['GET'])
 def view_thread(thread_id):
     if 'username' not in session:
