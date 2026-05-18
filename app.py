@@ -5,11 +5,22 @@ import mysql.connector  # den här modulen behövs för att skapa en databasansl
 from mysql.connector import Error
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, get_jwt
+from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
 CORS(app)
-
+socketio = SocketIO(app)
 app.secret_key = "supersecretkey"
+
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected', request.sid)
+    emit("user_connected", broadcast=True)
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print(f"User disconnected")
+    emit("user_disconnected", broadcast=True)
 
 db_config = {
     'host': 'localhost',
@@ -42,7 +53,14 @@ def index():
         return jsonify({'error': 'Database connection failed'}), 500
     try:
         cursor = connection.cursor(dictionary=True)
-        sql = "SELECT * FROM threads"
+        sql = """
+        SELECT threads.thread_id,
+            threads.title,
+            threads.created_at,
+            users.username
+        FROM threads
+        JOIN users ON threads.user_id = users.user_id
+        """
         cursor.execute(sql)
         threads = cursor.fetchall()
     except Error as e:
@@ -166,7 +184,7 @@ def view_thread(thread_id):
 
         # Hämta inlägg i tråden
         sql_posts = """
-        SELECT posts.post_id, posts.content, users.username 
+        SELECT posts.post_id, posts.content, posts.created_at, users.username 
         FROM posts 
         JOIN users ON posts.user_id = users.user_id 
         WHERE posts.thread_id = %s
@@ -178,7 +196,94 @@ def view_thread(thread_id):
         print(f"Database error: {e}")
         return jsonify({'error': 'Failed to fetch thread data'}), 500
     
+@app.route('/create_post/<int:thread_id>', methods=['POST'])
+def create_post(thread_id):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
 
+    content = request.form.get('content')
+
+    if not content:
+        return jsonify({'error': 'Content is required'}), 400
+
+    connection = get_db_connection()
+
+    if not connection:
+        return jsonify({'error': 'Database connection failed'}), 500
+
+    try:
+        cursor = connection.cursor()
+
+        # Hämta user_id från username
+        cursor.execute(
+            "SELECT user_id FROM users WHERE username = %s",
+            (session['username'],)
+        )
+
+        user = cursor.fetchone()
+
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        user_id = user[0]
+
+        # Lägg till posten
+        sql_insert = """
+        INSERT INTO posts (thread_id, user_id, content)
+        VALUES (%s, %s, %s)
+        """
+
+        cursor.execute(sql_insert, (thread_id, user_id, content))
+        connection.commit()
+
+        return redirect(f'/thread/{thread_id}')
+
+    except Error as e:
+        print(f"Database error: {e}")
+        return jsonify({'error': 'Failed to create post'}), 500
+
+    finally:
+        if connection:
+            connection.close()
+
+@socketio.on("new_post")
+def handle_new_post(data):
+
+    thread_id = data["thread_id"]
+    username = data["username"]
+    content = data["content"]
+
+    connection = get_db_connection()
+    cursor = connection.cursor()
+
+    # hämta user_id
+    cursor.execute(
+        "SELECT user_id FROM users WHERE username = %s",
+        (username,)
+    )
+
+    user = cursor.fetchone()
+
+    if not user:
+        return
+
+    user_id = user[0]
+
+    # spara post
+    cursor.execute("""
+        INSERT INTO posts (thread_id, user_id, content)
+        VALUES (%s, %s, %s)
+    """, (thread_id, user_id, content))
+
+    connection.commit()
+
+    # skicka till alla clients
+    emit("receive_post", {
+        "username": username,
+        "content": content
+    }, broadcast=True)
+
+    connection.close()
 
 @app.route("/login", methods=['GET'])
 def login_page():
@@ -222,4 +327,4 @@ def logout():
     return redirect('/login')  # Omdirigera till login-sidan efter utloggning
 
 if __name__ == "__main__": 
-    app.run(debug=True, port=3000) 
+    socketio.run(app, debug=True, port=3000) 

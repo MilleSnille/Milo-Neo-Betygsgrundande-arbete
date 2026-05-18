@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Forum</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
 </head>
 <body>
     <h1>Välkommen till forumet!</h1>
@@ -20,6 +21,17 @@
             <a href="/register">Registrera</a>
         {% endif %}
     </h2>
+    <script>
+        const socket = io();
+
+        socket.on("user_connected", () => {
+            console.log("En användare har anslutit.");
+        });
+
+        socket.on("user_disconnected", () => {
+            console.log("En användare har kopplat bort.");
+        });
+    </script>
     {% block content %}
 
     {% endblock %}

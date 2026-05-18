@@ -1,10 +1,39 @@
 {% extends "base.html" %}
 
-
 {% block content %}
+
 <form action="/" method="GET">
     <button type="submit">Gå till start</button>
 </form>
+
 <h2>{{ thread.title }}</h2>
+
+<hr>
+
+<h3>Skriv ett svar</h3>
+
+<form action="/create_post/{{ thread.thread_id }}" method="POST">
+    <textarea name="content" rows="5" cols="50" placeholder="Skriv ditt inlägg här..." required></textarea>
+    <br>
+    <button type="submit">Skicka</button>
+</form>
+
+<hr>
+
+<h3>Inlägg</h3>
+
+{% for post in posts %}
+
+<div style="border:1px solid black; padding:10px; margin-bottom:10px;">
+    <strong>{{ post.username }}</strong>
+    <p>{{ post.content }}</p>
+    <p>{{ post.created_at }}</p>
+</div>
+
+{% else %}
+
+<p>Det finns inga inlägg ännu.</p>
+
+{% endfor %}
 
 {% endblock %}
