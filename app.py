@@ -120,49 +120,6 @@ def register():
         if connection:
             connection.close()
 
-@app.route('/create_thread', methods=['POST'])
-def create_thread():
-    if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
-
-    title = request.form.get('title')
-
-    if not title:
-        return jsonify({'error': 'Title is required'}), 400
-
-    connection = get_db_connection()
-    if not connection:
-        return jsonify({'error': 'Database connection failed'}), 500
-
-    try:
-        cursor = connection.cursor()
-
-        # Hämta user_id från username
-        cursor.execute("SELECT user_id FROM users WHERE username = %s", (session['username'],))
-        user = cursor.fetchone()
-
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-
-        user_id = user[0]
-
-        sql_insert = """
-        INSERT INTO threads (title, user_id)
-        VALUES (%s, %s)
-        """
-        cursor.execute(sql_insert, (title, user_id))
-        connection.commit()
-
-        return redirect('/')  # Omdirigera till startsidan efter att tråden har skapats
-
-    except Error as e:
-        print(f"Database error: {e}")
-        return jsonify({'error': 'Failed to create thread'}), 500
-
-    finally:
-        if connection:
-            connection.close()
-
 @socketio.on("new_thread")
 def handle_new_thread(data):
     title = data["title"]
@@ -242,56 +199,6 @@ def view_thread(thread_id):
         print(f"Database error: {e}")
         return jsonify({'error': 'Failed to fetch thread data'}), 500
     
-@app.route('/create_post/<int:thread_id>', methods=['POST'])
-def create_post(thread_id):
-    if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
-
-    content = request.form.get('content')
-
-    if not content:
-        return jsonify({'error': 'Content is required'}), 400
-
-    connection = get_db_connection()
-
-    if not connection:
-        return jsonify({'error': 'Database connection failed'}), 500
-
-    try:
-        cursor = connection.cursor()
-
-        # Hämta user_id från username
-        cursor.execute(
-            "SELECT user_id FROM users WHERE username = %s",
-            (session['username'],)
-        )
-
-        user = cursor.fetchone()
-
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-
-        user_id = user[0]
-
-        # Lägg till posten
-        sql_insert = """
-        INSERT INTO posts (thread_id, user_id, content)
-        VALUES (%s, %s, %s)
-        """
-
-        cursor.execute(sql_insert, (thread_id, user_id, content))
-        connection.commit()
-
-        return redirect(f'/thread/{thread_id}')
-
-    except Error as e:
-        print(f"Database error: {e}")
-        return jsonify({'error': 'Failed to create post'}), 500
-
-    finally:
-        if connection:
-            connection.close()
-
 @socketio.on("new_post")
 def handle_new_post(data):
 
