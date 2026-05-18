@@ -108,6 +108,8 @@ def register():
         connection.commit()
         
         session['username'] = username 
+        session['role'] = 'user'  # Sätt standardrollen till 'user'
+        session['user_id'] = cursor.lastrowid  # Spara det nya user_id i sessionen
         return redirect('/')  # Omdirigera till startsidan efter registrering
       
     except Error as e:
@@ -152,7 +154,6 @@ def create_thread():
         connection.commit()
 
         return redirect('/')  # Omdirigera till startsidan efter att tråden har skapats
-        return render_template('index.html', username=session['username'])  # Skicka tillbaka användarnamnet till index.html
 
     except Error as e:
         print(f"Database error: {e}")
@@ -324,6 +325,7 @@ def handle_new_post(data):
 
     # skicka till alla clients
     emit("receive_post", {
+        "thread_id": thread_id,
         "username": username,
         "content": content
     }, broadcast=True)

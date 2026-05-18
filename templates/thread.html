@@ -43,7 +43,7 @@
 
         <p>{{ post.created_at }}</p>
 
-            {% if post.user_id == session['user_id'] or session['role'] == 'admin' %}
+            {% if post.user_id == user_id or role == 'admin' %}
         <form action="/delete_post/{{ post.post_id }}/{{ thread.thread_id }}" method="POST">
             <button type="submit">Ta bort</button>
         </form>
@@ -88,7 +88,10 @@
     });
 
     socket.on("receive_post", function(data) {
-
+        if (data.thread_id !== threadId) {
+            return; // Ignorera inlägg som inte tillhör den aktuella tråden
+        }
+        
         const noPosts = document.getElementById("noPosts");
 
         if (noPosts) {
