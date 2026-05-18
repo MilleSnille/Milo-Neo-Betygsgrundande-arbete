@@ -29,8 +29,6 @@
     </ul>
 
     <script>
-        const socket = io();
-
         const threadForm = document.getElementById("threadForm");
         const threadTitle = document.getElementById("threadTitle");
         const threadsList = document.getElementById("threadsList");
@@ -38,7 +36,8 @@
         const username = "{{ username }}";
 
         threadForm.addEventListener("submit", function(event) {
-            event.preventDefault();
+
+            event.preventDefault(); // Förhindra att formuläret skickas på vanligt sätt
 
             const title = threadTitle.value.trim();
 
