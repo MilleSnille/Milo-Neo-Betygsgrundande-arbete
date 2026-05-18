@@ -108,7 +108,7 @@ def register():
         connection.commit()
         
         session['username'] = username 
-        return render_template('index.html', username=username)  
+        return redirect('/')  # Omdirigera till startsidan efter registrering
       
     except Error as e:
         print(f"Database error: {e}")
