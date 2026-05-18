@@ -1,0 +1,2 @@
+Det finns en admin som har username Milo och lösenord Milo1 
+Ett exempel på en vanlig användare är username Bon och lösenord Bon  
