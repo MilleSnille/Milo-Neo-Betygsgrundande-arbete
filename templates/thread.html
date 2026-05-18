@@ -12,9 +12,17 @@
 
 <h3>Skriv ett svar</h3>
 
-<form action="/create_post/{{ thread.thread_id }}" method="POST">
-    <textarea name="content" rows="5" cols="50" placeholder="Skriv ditt inlägg här..." required></textarea>
+<form id="postForm">
+    <textarea 
+        id="postContent"
+        rows="5" 
+        cols="50" 
+        placeholder="Skriv ditt inlägg här..." 
+        required>
+    </textarea>
+
     <br>
+
     <button type="submit">Skicka</button>
 </form>
 
@@ -22,18 +30,81 @@
 
 <h3>Inlägg</h3>
 
-{% for post in posts %}
+<div id="posts">
 
-<div style="border:1px solid black; padding:10px; margin-bottom:10px;">
-    <strong>{{ post.username }}</strong>
-    <p>{{ post.content }}</p>
-    <p>{{ post.created_at }}</p>
+    {% for post in posts %}
+
+    <div style="border:1px solid black; padding:10px; margin-bottom:10px;">
+        <strong>{{ post.username }}</strong>
+
+        <p>{{ post.content }}</p>
+
+        <p>{{ post.created_at }}</p>
+    </div>
+
+    {% else %}
+
+    <p id="noPosts">Det finns inga inlägg ännu.</p>
+
+    {% endfor %}
+
 </div>
 
-{% else %}
+<script>
 
-<p>Det finns inga inlägg ännu.</p>
+    const socket = io();
 
-{% endfor %}
+    const form = document.getElementById("postForm");
+    const textarea = document.getElementById("postContent");
+    const postsDiv = document.getElementById("posts");
+
+    const threadId = "{{ thread.thread_id }}";
+    const username = "{{ username }}";
+
+    form.addEventListener("submit", function(event) {
+
+        event.preventDefault(); // Förhindra att formuläret skickas på vanligt sätt
+
+        const content = textarea.value.trim();
+
+        if (content === "") {
+            return;
+        }
+
+        socket.emit("new_post", {
+            thread_id: threadId,
+            username: username,
+            content: content
+        });
+
+        textarea.value = "";
+
+    });
+
+    socket.on("receive_post", function(data) {
+
+        const noPosts = document.getElementById("noPosts");
+
+        if (noPosts) {
+            noPosts.remove();
+        }
+
+        const postDiv = document.createElement("div");
+
+        postDiv.style.border = "1px solid black";
+        postDiv.style.padding = "10px";
+        postDiv.style.marginBottom = "10px";
+
+        postDiv.innerHTML = `
+            <strong>${data.username}</strong>
+            <p>${data.content}</p>
+            <p>nyss</p>
+        `;
+
+        postsDiv.appendChild(postDiv);
+
+    });
+
+</script>
 
 {% endblock %}
